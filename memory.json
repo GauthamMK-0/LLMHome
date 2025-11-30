@@ -1,21 +1,4 @@
 {
-  "events": [
-    {
-      "time": "2025-11-10T14:29:54.646282",
-      "event": "User requested memory action: (Current room: bedroom) clear memory"
-    },
-    {
-      "time": "2025-11-10T14:31:33.622924",
-      "event": "Executed input_boolean.toggle on input_boolean.bedroom_light"
-    },
-    {
-      "time": "2025-11-10T14:42:07.937406",
-      "event": "User asked: (Current room: bedroom) turn on the light \u2014 The light in the bedroom is already on. No further action is required."
-    },
-    {
-      "time": "2025-11-10T14:44:33.196318",
-      "event": "User asked: (Current room: bedroom) turn on the fan \u2014 The fan in the bedroom is already on."
-    }
-  ],
+  "events": [],
   "tasks": []
 }
