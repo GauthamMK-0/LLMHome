@@ -24,7 +24,9 @@ app = FastAPI(title="Home Assistant LLM", version="2.0")
 
 # --- Load quantized model ---
 llm = Llama(
-    model_path="models/Qwen2.5-3B-Instruct-Q4_K_M.gguf",
+    #path of locally downloaded model
+    model_path="path/to/the/model", 
+    #modify the parameters as requried for your device
     n_ctx=2048,
     n_threads=6,
     n_batch=128,
@@ -140,17 +142,14 @@ class Query(BaseModel):
 def handle_query(payload: Query):
     user_query = payload.q.strip()
 
-    # Step 1: Handle special memory intents before LLM
     memory_response = handle_memory_intent(user_query)
     if memory_response:
         log_event(f"User requested memory action: {user_query}")
         return memory_response
 
-    # Step 2: Get devices and context
     devices = fetch_devices()
     now_str = datetime.now().strftime("%I:%M %p on %A %B %d, %Y")
 
-    # Step 3: Load memory and construct context
     memory = load_memory()
     recent_events = memory["events"][-10:]
     pending_tasks = list_tasks()
@@ -163,7 +162,6 @@ def handle_query(payload: Query):
         [f"- {t['task']}" for t in pending_tasks]
     ) if pending_tasks else "No pending tasks."
 
-    # Step 4: Construct LLM system prompt
     system_prompt = f"""
 You are 'Al', the local AI assistant that manages home devices and keeps track of what happens in the house.
 Current time: {now_str}
@@ -196,7 +194,6 @@ Respond strictly in JSON format:
 If no action is needed, set "action": null.
 """
 
-    # Step 5: LLM Inference
     try:
         out = llm(system_prompt, max_tokens=256)
         text = out["choices"][0]["text"].strip()
@@ -205,14 +202,12 @@ If no action is needed, set "action": null.
 
     clean_text = re.sub(r"```(?:json)?", "", text).strip("` \n")
 
-    # Step 6: Parse JSON safely
     try:
         data = json.loads(clean_text)
     except json.JSONDecodeError:
         print("[WARN] JSON decode failed. Raw model output:\n", text)
         data = {"response": clean_text, "action": None}
 
-    # Step 7: Execute Action if Any
     action = data.get("action")
     if action and action.get("entity_id"):
         entity_id = action["entity_id"]
