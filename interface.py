@@ -3,7 +3,6 @@ import requests
 LLM_URL = "http://localhost:8000/query"
 
 def send_to_llm(command: str, room: str | None = None):
-    """Send a text command with optional room context to the LLM backend."""
     try:
         if room:
             full_query = f"(Current room: {room}) {command}"
