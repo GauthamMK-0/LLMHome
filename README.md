@@ -1,21 +1,19 @@
 # **LLMHome — Local LLM-Powered Home Assistant**
 
 LLMHome is a fully local home-automation system that connects a quantized LLM running via `llama.cpp` to a Home Assistant installation.
-It supports natural-language control, device automation, task/memory management, and contextual reasoning using home data.
-
-This project works offline and performs all inference locally using a 3B-parameter LLM.
+It supports natural-language device control, task/memory management, and contextual reasoning using home data.
+All inference runs locally using a 3B-parameter model.
 
 ---
 
 ## **Features**
 
 * Fully local LLM using `llama.cpp`
-* Integrates with Home Assistant via REST API
-* Natural-language device control (lights, fans, switches, sensors)
-* Persistent task and event memory (`memory.json`)
-* Context-aware responses with recent history and pending tasks
-* JSON-based action interface
-* Simple terminal interface (`interface.py`)
+* Integration with Home Assistant via REST API
+* Natural-language device control
+* Persistent memory (`memory.json`)
+* JSON-based action schema
+* Terminal interface for user commands
 * Expandable tool set for future automation
 
 ---
@@ -24,12 +22,14 @@ This project works offline and performs all inference locally using a 3B-paramet
 
 ```
 LLMHome/
-│── assistant.py       # Backend server running the LLM and Home Assistant logic
-│── interface.py       # Terminal-based user interface for sending commands
-│── home.py            # Basic Home Assistant API access and validation
-│── home.env           # Environment variables (HA URL and token)
-│── models/            # GGUF quantized models for llama.cpp
-│── memory.json        # Persistent memory storage
+│── assistant.py         # Backend LLM + Home Assistant logic (FastAPI server)
+│── interface.py         # Terminal interface for sending natural-language queries
+│── home.py              # Home Assistant API utilities
+│── home.env             # Environment variables (HA URL + Token)
+│── requirements.txt     # Python dependencies
+│── memory.json          # Persistent event/task memory
+│── models/              # GGUF models for llama.cpp
+│── venv/                # Python virtual environment (created by user after cloning)
 └── README.md
 ```
 
@@ -39,91 +39,160 @@ LLMHome/
 
 ### **System Requirements**
 
-* Ubuntu / Linux recommended
+* Ubuntu / Linux
 * Python 3.10+
-* 8 GB RAM minimum (for 3B model)
-* Working Home Assistant installation with API access
+* Minimum 8 GB RAM
+* Working Home Assistant instance with API access
 
-### **Python Packages**
+---
 
-Install dependencies:
+## **2. Create and Activate Virtual Environment**
+
+### Create:
+
+```bash
+python3 -m venv venv
+```
+
+### Activate:
+
+```bash
+source venv/bin/activate
+```
+
+---
+
+## **3. Install Dependencies**
+
+Inside the activated venv:
 
 ```bash
 pip install -r requirements.txt
 ```
 
-Typical dependencies include:
+Required packages include:
 
-* `fastapi`
-* `uvicorn`
-* `llama_cpp_python`
-* `requests`
-* `python-dotenv`
+```
+fastapi
+uvicorn
+llama_cpp_python
+requests
+python-dotenv
+```
 
 ---
 
-## **2. Home Assistant Setup**
+## **4. Install and Set Up `llama.cpp` for Python**
 
-### **Create Long-Lived Access Token**
+This project uses **llama.cpp through Python bindings**, provided by the package:
+
+```
+llama_cpp_python
+```
+
+### **4.1. Install the llama.cpp Python bindings**
+
+The package is already in `requirements.txt`, but you can install manually:
+
+```bash
+pip install llama_cpp_python
+```
+
+### **4.2. Enable CUDA acceleration (Optional)**
+
+To use CUDA:
+
+```bash
+pip install llama_cpp_python[cuda]
+```
+
+### **4.3. Confirm installation**
+
+```bash
+python3 -c "import llama_cpp; print('llama_cpp working')"
+```
+
+If no errors appear, the binding is successfully installed.
+
+### **4.4. How the model is loaded (in `assistant.py`)**
+
+`assistant.py` loads the GGUF model like this:
+
+```python
+from llama_cpp import Llama
+
+llm = Llama(
+    model_path="models/Qwen2.5-3B-Instruct-Q4_K_M.gguf",
+    n_ctx=4096,
+    n_threads=6
+)
+```
+
+You can adjust:
+
+* `n_ctx` → context length
+* `n_threads` → number of CPU threads
+* `n_gpu_layers` → number of layers offloaded to GPU (if configured)
+
+---
+
+## **5. Home Assistant Setup**
+
+### Create a long-lived access token:
 
 1. Open Home Assistant
-2. Profile → Long-lived access tokens
-3. Generate token
+2. Navigate to Profile
+3. Create a Long-Lived Access Token
 
-### **Configure `home.env`**
-
-Create a file named `home.env`:
+### Configure `home.env`:
 
 ```
 HA_URL=http://homeassistant.local:8123
-HA_TOKEN=YOUR_LONG_LIVED_TOKEN
+HA_TOKEN=YOUR_LONG_LIVED_ACCESS_TOKEN
 ```
 
 ---
 
-## **3. Download the LLM Model**
+## **6. Download the LLM Model**
 
-Example (Qwen2.5-3B):
+Recommended model:
+
+**Qwen2.5-3B-Instruct-GGUF**
+
+Download:
 
 ```bash
 hf download Qwen/Qwen2.5-3B-Instruct-GGUF --include "*.gguf" --output-dir models/
 ```
 
-Use any `Q4_K_M` or similar quantized GGUF file.
-
-Place the downloaded file inside:
+Ensure the model file is located inside:
 
 ```
-models/Qwen2.5-3B-Instruct-Q4_K_M.gguf
+models/
 ```
+
+Use any quantization such as `Q4_K_M`.
 
 ---
 
-## **4. Running the LLM Backend**
+## **7. Running the Backend Server**
 
-Start the backend server:
+Start the backend:
 
 ```bash
 python3 assistant.py
 ```
 
-You should see:
+Expected output:
 
 ```
 Starting LLM Home Assistant...
 Uvicorn running on http://0.0.0.0:8000
 ```
 
-The backend:
-
-* Loads the LLM
-* Loads device states from Home Assistant
-* Reads memory
-* Waits for natural language queries via `/query`
-
 ---
 
-## **5. Using the Terminal Interface**
+## **8. Using the Terminal Interface**
 
 Run:
 
@@ -131,127 +200,86 @@ Run:
 python3 interface.py
 ```
 
-The interface will ask for:
+Sample interaction:
 
 ```
-Room:
-Command:
-```
-
-Example:
-
-```
-Room: living_room
+Room: kitchen
 Command: turn on the lights
 ```
 
-The backend responds with:
-
-* A natural-language answer
-* A structured JSON action
-* Execution result/status
-
 ---
 
-## **6. How the System Works**
+## **9. How the System Works**
 
-### **1. Input**
+### Step 1: User Input
 
-User enters a natural-language query via the terminal interface.
-Example:
+The terminal sends the user's natural-language query to the backend.
 
-```
-"Turn on the bedroom fan"
-```
+### Step 2: Memory Handling
 
-### **2. Memory and Task Handling**
+Tasks, reminders, and events are stored in `memory.json`.
 
-Before calling the LLM:
+### Step 3: Context Building
 
-* Checks if the query is a memory instruction
-* Supports:
+The backend generates a structured prompt containing:
 
-  * "remember ..."
-  * "what did I do yesterday?"
-  * "show my tasks"
-  * "clear memory"
-
-### **3. Context Construction**
-
-The backend creates a system prompt containing:
-
-* Current time
+* Device states
+* Time and date
 * Recent events
-* Pending tasks
-* All Home Assistant devices, states, and attributes
-* Available tools (`toggle_boolean`, `call_service`)
+* User tasks
+* Available Home Assistant actions
 
-### **4. LLM Output**
+### Step 4: LLM Output
 
-The model must respond in JSON:
+The model returns JSON:
 
 ```json
 {
-  "response": "...",
+  "response": "Turning on the kitchen light.",
   "action": {
-    "domain": "input_boolean",
-    "service": "toggle",
-    "entity_id": "input_boolean.living_room_light"
+    "domain": "light",
+    "service": "turn_on",
+    "entity_id": "light.kitchen"
   }
 }
 ```
 
-### **5. Action Execution**
+### Step 5: Action Execution
 
-If `action` is non-null:
+Home Assistant REST API is called with the action.
 
-* Performs a Home Assistant service call
-* Logs the event
-* Returns execution status
+### Step 6: Logging
 
-### **6. Memory Logging**
-
-All events and actions are stored in `memory.json`:
-
-```
-{
-  "events": [...],
-  "tasks": [...]
-}
-```
+All actions are saved in `memory.json`.
 
 ---
 
-## **7. Example Commands**
+## **10. Example Commands**
 
-### **Device Control**
+**Device Control**
 
-* "Turn off the kitchen light"
-* "Toggle the living room fan"
-* "Switch on the bedroom AC"
+* Turn on the living room lights
+* Switch off the bedroom fan
 
-### **Task Management**
+**Tasks**
 
-* "Remember to pay the electricity bill"
-* "What tasks do I still have?"
-* "Clear memory"
+* Remember to pay the rent
+* Show my tasks
 
-### **Home Status Queries**
+**Status**
 
-* "What devices are currently on?"
-* "Show me all entities in the kitchen"
+* What devices are currently on?
+* List all kitchen sensors
 
 ---
 
+## **11. Future Extensions**
 
-## **8. Future Extensions**
-
-* Add voice interface
-* Add multi-room automatic context
-* Add camera and sensor summarization
-* Automate energy reporting
-* Add fine-tuned home-specific LLM
+* Voice-to-text interface
+* Camera/sensor summarization
+* Energy efficiency analytics
+* Automatic room context detection
+* Custom fine-tuned home LLM
 
 ---
-
 
